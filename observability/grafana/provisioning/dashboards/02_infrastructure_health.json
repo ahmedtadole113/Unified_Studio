@@ -1,0 +1,94 @@
+{
+  "uid": "ues-infra-health",
+  "title": "02. Infrastructure & Container Health",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Container CPU %",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_container_cpu_percent",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Container Memory % of Limit",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_container_memory_percent",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Container Restarts",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_container_restarts_total",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    }
+  ]
+}

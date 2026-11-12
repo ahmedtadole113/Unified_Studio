@@ -1,0 +1,67 @@
+{
+  "uid": "ues-airflow-rel",
+  "title": "05. Airflow Orchestration Reliability",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Airflow Services Up",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_service_up{category=\"orchestration\"}",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Airflow Memory Usage (MB)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_container_memory_mb{category=\"orchestration\"}",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    }
+  ]
+}

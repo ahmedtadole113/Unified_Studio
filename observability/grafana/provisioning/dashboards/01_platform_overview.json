@@ -1,0 +1,175 @@
+{
+  "uid": "ues-platform-overview",
+  "title": "01. Unified Platform Overview",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Healthy Services Count",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(ues_service_up)",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Total Container Memory (MB)",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(ues_container_memory_mb)",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Total Container CPU (%)",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(ues_container_cpu_percent)",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Control Plane RPS",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ues_http_requests_total[1m]))",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Service Availability Over Time",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_service_up",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Container Memory Usage (MB)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_container_memory_mb",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    }
+  ]
+}

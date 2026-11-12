@@ -1,0 +1,13 @@
+route:
+  group_by: ['alertname', 'domain']
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 10m
+  receiver: 'ues-control-plane'
+
+receivers:
+  - name: 'ues-control-plane'
+    webhook_configs:
+      - url: 'http://portal-backend:8000/api/v1/incidents/webhook/alertmanager'
+        send_resolved: true
+

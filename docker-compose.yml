@@ -1,0 +1,528 @@
+services:
+  # ==========================================================================
+  # PROFILE 1: CORE CONTROL PLANE (Default / Always On — M4 8GB Optimized)
+  # ==========================================================================
+  portal-backend:
+    build:
+      context: ./portal/backend
+    container_name: portal-backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/home/iceberg
+      - portal_data:/data
+      - ${HOME}/.kube:/kube-host:ro
+    ports:
+      - "${PORTAL_BACKEND_PORT:-8000}:8000"
+    environment:
+      - UES_AUTH_SECRET=${UES_AUTH_SECRET:-ues-dev-ephemeral-secret-override-in-env}
+      - UES_BOOTSTRAP_ADMIN_USER=${UES_BOOTSTRAP_ADMIN_USER:-aariz}
+      - UES_BOOTSTRAP_ADMIN_PASSWORD=${UES_BOOTSTRAP_ADMIN_PASSWORD:-aariz}
+      - POSTGRES_HOST=postgres-dw
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_dw}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_PORT=5432
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-password}
+      - AIRFLOW_USER=${AIRFLOW_USER:-admin}
+      - AIRFLOW_PASSWORD=${AIRFLOW_PASSWORD:-admin}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-guest}
+      - GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-ues-grafana-admin}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - SRE_DB_PATH=/data/sre_platform.db
+      - UES_USERS_DB_PATH=/data/users.json
+      - UES_COMPOSE_DIR=/home/iceberg
+    networks:
+      - iceberg_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  portal-frontend:
+    build:
+      context: ./portal/frontend
+    container_name: portal-frontend
+    ports:
+      - "${PORTAL_FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      - portal-backend
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  postgres-dw:
+    image: postgres:16-alpine
+    container_name: postgres-dw
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_dw}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - iceberg_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-synapse_dw}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    volumes:
+      - ./observability/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ==========================================================================
+  # PROFILE 2: DATA ENGINEERING STUDIO (Storage, Spark 4.2, Airflow, Streaming)
+  # ==========================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    profiles:
+      - profile-data-engineering
+      - profile-storage
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-password}
+      - MINIO_BROWSER_REDIRECT_URL=http://localhost:5173/services/datalake
+    networks:
+      iceberg_net:
+        aliases:
+          - warehouse.minio
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - minio_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  mc:
+    image: minio/mc:latest
+    container_name: mc
+    profiles:
+      - profile-data-engineering
+      - profile-storage
+    depends_on:
+      - minio
+    networks:
+      - iceberg_net
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-admin} ${MINIO_ROOT_PASSWORD:-password};
+      /usr/bin/mc mb myminio/warehouse --ignore-existing;
+      /usr/bin/mc mb myminio/bronze --ignore-existing;
+      /usr/bin/mc mb myminio/silver --ignore-existing;
+      /usr/bin/mc mb myminio/gold --ignore-existing;
+      exit 0;
+      "
+
+  spark-processing:
+    build: .
+    container_name: spark-processing
+    profiles:
+      - profile-data-engineering
+      - profile-processing
+    depends_on:
+      - rest
+      - minio
+    volumes:
+      - ./warehouse:/home/iceberg/warehouse
+      - .:/home/iceberg/notebooks
+      - ./data:/home/iceberg/data
+    environment:
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-password}
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_S3_PATH_STYLE_ACCESS=true
+    ports:
+      - "${JUPYTER_PORT:-8888}:8888"
+      - "${SPARK_MASTER_PORT:-8080}:8080"
+      - "10000:10000"
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
+  rest:
+    image: apache/iceberg-rest-fixture:latest
+    container_name: iceberg-rest
+    profiles:
+      - profile-data-engineering
+      - profile-processing
+    networks:
+      - iceberg_net
+    ports:
+      - "8181:8181"
+    environment:
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-password}
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - CATALOG_WAREHOUSE=s3://warehouse/wh/
+      - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
+      - CATALOG_S3_ENDPOINT=http://minio:9000
+      - CATALOG_S3_PATH_STYLE_ACCESS=true
+      - CATALOG_S3_PATH__STYLE__ACCESS=true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  airflow-webserver:
+    build:
+      context: ./airflow
+    container_name: airflow-webserver
+    profiles:
+      - profile-data-engineering
+      - profile-orchestration
+    ports:
+      - "${AIRFLOW_WEBSERVER_PORT:-8085}:8080"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data:/home/iceberg/data
+      - airflow_db:/opt/airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__DAMPENING_PERIOD=0
+      - AIRFLOW__WEBSERVER__X_FRAME_ENABLED=True
+      - AIRFLOW__WEBSERVER__X_FRAME_OPTIONS=ALLOWALL
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW__WEBSERVER__BASE_URL=http://localhost:5173/services/airflow
+      - POSTGRES_HOST=postgres-dw
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_dw}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - AIRFLOW_CONN_POSTGRES_DW_CONN=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-dw:5432/${POSTGRES_DB:-synapse_dw}
+    networks:
+      - iceberg_net
+    command: >
+      bash -c "
+      airflow db init &&
+      airflow users create --username ${AIRFLOW_USER:-admin} --password ${AIRFLOW_PASSWORD:-admin} --firstname Admin --lastname Admin --role Admin --email admin@example.com || true;
+      exec airflow webserver
+      "
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  airflow-scheduler:
+    build:
+      context: ./airflow
+    container_name: airflow-scheduler
+    profiles:
+      - profile-data-engineering
+      - profile-orchestration
+    depends_on:
+      - airflow-webserver
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data:/home/iceberg/data
+      - airflow_db:/opt/airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - POSTGRES_HOST=postgres-dw
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_dw}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - AIRFLOW_CONN_POSTGRES_DW_CONN=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-dw:5432/${POSTGRES_DB:-synapse_dw}
+    networks:
+      - iceberg_net
+    command: bash -c "sleep 5; exec airflow scheduler"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  pgadmin:
+    image: dpage/pgadmin4:8.4
+    container_name: pgadmin
+    profiles:
+      - profile-data-engineering
+      - profile-warehouse
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=pgadmin4@pgadmin.org
+      - PGADMIN_DEFAULT_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+      - SCRIPT_NAME=/services/synapse
+      - PGADMIN_CONFIG_X_FRAME_OPTIONS=""
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.6
+    container_name: redpanda
+    profiles:
+      - profile-data-engineering
+      - profile-streaming
+    command: >
+      redpanda start
+      --overprovisioned
+      --smp 1
+      --memory 256M
+      --reserve-memory 0M
+      --default-log-level=warn
+    ports:
+      - "${REDPANDA_PORT:-9092}:9092"
+      - "8082:8082"
+      - "9644:9644"
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.4.6
+    container_name: redpanda-console
+    profiles:
+      - profile-data-engineering
+      - profile-streaming
+    depends_on:
+      - redpanda
+    ports:
+      - "${REDPANDA_CONSOLE_PORT:-8081}:8080"
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - SERVER_BASEPATH=/services/eventhub
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    profiles:
+      - profile-data-engineering
+      - profile-streaming
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_ADMIN_PORT:-15672}:15672"
+      - "15692:15692"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-guest}
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_management path_prefix "/services/servicebus"
+    command: sh -c "rabbitmq-plugins enable --offline rabbitmq_prometheus && exec docker-entrypoint.sh rabbitmq-server"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ==========================================================================
+  # PROFILE 3: SRE, OBSERVABILITY & KUBERNETES LAB
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana-oss:10.4.1
+    container_name: grafana
+    profiles:
+      - profile-sre
+      - profile-monitoring
+    ports:
+      - "${GRAFANA_PORT:-3010}:3000"
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-ues-grafana-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:5173/services/monitoring
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+
+  loki:
+    image: grafana/loki:2.9.6
+    container_name: loki
+    profiles:
+      - profile-sre
+      - profile-monitoring
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+
+  promtail:
+    image: grafana/promtail:2.9.6
+    container_name: promtail
+    profiles:
+      - profile-sre
+      - profile-monitoring
+    depends_on:
+      - loki
+    volumes:
+      - ./observability/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: tempo
+    profiles:
+      - profile-sre
+      - profile-monitoring
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"
+      - "4318:4318"
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo/tempo.yml:/etc/tempo.yaml:ro
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    profiles:
+      - profile-sre
+      - profile-monitoring
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  data-generator:
+    build:
+      context: ./sre-modules/data-generator
+      dockerfile: Dockerfile
+    container_name: data-generator
+    profiles:
+      - profile-sre
+    ports:
+      - "8001:8000"
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  practice-lab:
+    build:
+      context: ./sre-modules/practice-lab
+      dockerfile: Dockerfile
+    container_name: practice-lab
+    profiles:
+      - profile-sre
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.kube:/kube-host:ro
+    ports:
+      - "8090:8090"
+    networks:
+      - iceberg_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+networks:
+  iceberg_net:
+
+volumes:
+  portal_data:
+  minio_data:
+  postgres_data:
+  pgadmin_data:
+  rabbitmq_data:
+  grafana_data:
+  airflow_db:
+  prometheus_data:
+  loki_data:

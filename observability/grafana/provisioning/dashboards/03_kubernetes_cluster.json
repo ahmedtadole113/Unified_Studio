@@ -1,0 +1,67 @@
+{
+  "uid": "ues-k8s-cluster",
+  "title": "03. Kubernetes & Control Plane",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Control Plane HTTP Latency p99 (s)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(ues_http_request_duration_seconds_bucket[5m])) by (le))",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Control Plane Requests by Path",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (path) (rate(ues_http_requests_total[1m]))",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    }
+  ]
+}

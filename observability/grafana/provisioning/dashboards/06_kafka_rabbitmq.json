@@ -1,0 +1,67 @@
+{
+  "uid": "ues-kafka-rabbit",
+  "title": "06. Redpanda (Kafka) & RabbitMQ",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Redpanda Broker CPU & Memory",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "ues_container_memory_mb{service_id=\"redpanda\"}",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "RabbitMQ Queue Messages Ready",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rabbitmq_queue_messages_ready",
+          "refId": "A",
+          "legendFormat": "{{service_id}} {{container_name}} {{slo_id}}"
+        }
+      ]
+    }
+  ]
+}

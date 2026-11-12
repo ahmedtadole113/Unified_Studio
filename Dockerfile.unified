@@ -1,0 +1,143 @@
+# ============================================================
+# Azure Data Engineering Practice Lab — Unified Docker Image
+# ============================================================
+# Consolidates all 13 services into a single container.
+# Base: tabulario/spark-iceberg (Java 17 + Spark 4.2 + Python + Jupyter)
+# ============================================================
+
+# ── Stage 1: Build React Frontend ──
+FROM node:20-alpine AS frontend-build
+WORKDIR /build
+COPY portal/frontend/package.json .
+RUN npm install
+COPY portal/frontend/ .
+# Create production vite config (no proxy needed, nginx handles it)
+RUN npm run build
+
+# ── Stage 2: Extract Iceberg REST JAR ──
+FROM apache/iceberg-rest-fixture:latest AS iceberg-rest-src
+
+# ── Stage 3: Extract Redpanda binaries ──
+FROM docker.redpanda.com/redpandadata/redpanda:v23.3.6 AS redpanda-src
+
+# ── Stage 4: Extract Redpanda Console binary ──
+FROM docker.redpanda.com/redpandadata/console:v2.4.6 AS console-src
+
+# ── Stage 5: Main Unified Image ──
+FROM tabulario/spark-iceberg
+
+USER root
+
+# ── System packages (all in one layer) ──
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl gnupg lsb-release sudo procps ca-certificates \
+    supervisor \
+    nginx \
+    postgresql postgresql-client \
+    erlang-base erlang-nox \
+    rabbitmq-server \
+    libpq-dev \
+    build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Enable RabbitMQ Management Plugin ──
+RUN rabbitmq-plugins enable --offline rabbitmq_management
+
+# ── Install MinIO (server + client) ──
+ARG TARGETARCH=arm64
+RUN curl -fsSL https://dl.min.io/server/minio/release/linux-${TARGETARCH}/minio -o /usr/local/bin/minio \
+    && chmod +x /usr/local/bin/minio \
+    && curl -fsSL https://dl.min.io/client/mc/release/linux-${TARGETARCH}/mc -o /usr/local/bin/mc \
+    && chmod +x /usr/local/bin/mc
+
+# ── Install Grafana ──
+RUN curl -fsSL https://dl.grafana.com/oss/release/grafana-10.4.1.linux-${TARGETARCH}.tar.gz \
+    | tar xz -C /opt/ \
+    && mv /opt/grafana-v10.4.1 /opt/grafana
+
+# ── Install extra Jupyter/Spark packages (Spark 4.2 + Delta Lake 4.x + DuckDB) ──
+RUN pip install --no-cache-dir "pyspark>=4.2.0" "delta-spark>=4.0.0" duckdb ipython-sql jupysql jupyterlab-git
+
+# ── Install Airflow (pins SQLAlchemy <2.0 which Airflow requires) ──
+RUN pip install --no-cache-dir \
+    "apache-airflow==2.9.2" \
+    "sqlalchemy>=1.4.36,<2.0" \
+    apache-airflow-providers-postgres==5.11.0 \
+    apache-airflow-providers-http==4.10.1 \
+    psycopg2-binary==2.9.9 \
+    boto3==1.34.100
+
+# ── Install pgAdmin4 in isolated venv (needs SQLAlchemy 2.0 which conflicts with Airflow) ──
+RUN python3 -m venv /opt/pgadmin4/venv \
+    && /opt/pgadmin4/venv/bin/pip install --no-cache-dir pgadmin4==8.4
+
+# ── Pin SQLAlchemy for Airflow (must be <2.0) ──
+RUN pip install --no-cache-dir "sqlalchemy>=1.4.36,<2.0"
+
+# ── Install Portal Backend dependencies ──
+COPY portal/backend/requirements.txt /tmp/backend-req.txt
+RUN pip install --no-cache-dir -r /tmp/backend-req.txt && rm /tmp/backend-req.txt
+
+# ── Copy Iceberg REST from stage 2 ──
+COPY --from=iceberg-rest-src /usr/lib/iceberg-rest/ /opt/iceberg-rest/
+
+# ── Copy Redpanda binary from stage 3 ──
+COPY --from=redpanda-src /opt/redpanda/ /opt/redpanda/
+
+# ── Copy Redpanda Console from stage 4 ──
+COPY --from=console-src /app/console /opt/redpanda-console/console
+RUN chmod +x /opt/redpanda-console/console
+
+# ── Copy built frontend from stage 1 ──
+COPY --from=frontend-build /build/dist /var/www/portal
+
+# ── Copy Portal Backend ──
+COPY portal/backend/ /opt/portal-backend/
+
+# ── Copy Spark Configurations ──
+COPY spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+# ── Copy Jupyter Config (iframe embedding, base URL) ──
+RUN mkdir -p /root/.jupyter/ \
+    && echo "c = get_config()" > /root/.jupyter/jupyter_server_config.py \
+    && echo "c.ServerApp.tornado_settings = {'headers': {'Content-Security-Policy': \"frame-ancestors 'self' *\"}}" >> /root/.jupyter/jupyter_server_config.py \
+    && echo "c.ServerApp.disable_check_xsrf = True" >> /root/.jupyter/jupyter_server_config.py \
+    && echo "c.ServerApp.base_url = '/services/databricks/'" >> /root/.jupyter/jupyter_server_config.py \
+    && echo "c.ServerApp.allow_origin = '*'" >> /root/.jupyter/jupyter_server_config.py \
+    && echo "c = get_config()" > /root/.jupyter/jupyter_notebook_config.py \
+    && echo "c.NotebookApp.tornado_settings = {'headers': {'Content-Security-Policy': \"frame-ancestors 'self' *\"}}" >> /root/.jupyter/jupyter_notebook_config.py \
+    && echo "c.NotebookApp.disable_check_xsrf = True" >> /root/.jupyter/jupyter_notebook_config.py \
+    && echo "c.NotebookApp.base_url = '/services/databricks/'" >> /root/.jupyter/jupyter_notebook_config.py \
+    && echo "c.NotebookApp.allow_origin = '*'" >> /root/.jupyter/jupyter_notebook_config.py
+
+# ── Copy iPython startup scripts ──
+RUN mkdir -p /root/.ipython/profile_default/startup/
+COPY startup/ /root/.ipython/profile_default/startup/
+
+# ── Copy Notebooks & Data ──
+COPY notebooks/ /home/iceberg/notebooks/
+COPY data/ /home/iceberg/data/
+
+# ── Copy Airflow DAGs ──
+RUN mkdir -p /opt/airflow-dags
+COPY airflow/dags/ /opt/airflow-dags/
+
+# ── Copy Configs ──
+COPY supervisord.conf /etc/supervisord.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY redpanda.yaml /etc/redpanda/redpanda.yaml
+COPY entrypoint-unified.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ── Create data directories ──
+RUN mkdir -p /data /data/redpanda /var/log/nginx /var/log/grafana /home/iceberg/spark-events /home/iceberg/warehouse
+
+# ── Expose the single portal port ──
+EXPOSE 5173
+
+# ── Health check ──
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:5173/api/services || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]

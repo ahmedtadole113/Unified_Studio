@@ -1,0 +1,26 @@
+redpanda:
+  data_directory: /data/redpanda
+  node_id: 0
+  seed_servers: []
+  empty_seed_starts_cluster: true
+  developer_mode: true
+  kafka_api:
+    - address: 0.0.0.0
+      port: 9092
+  advertised_kafka_api:
+    - address: localhost
+      port: 9092
+  admin:
+    - address: 0.0.0.0
+      port: 9644
+
+pandaproxy:
+  pandaproxy_api:
+    - address: 0.0.0.0
+      port: 8082
+  advertised_pandaproxy_api:
+    - address: localhost
+      port: 8082
+
+rpk:
+  overprovisioned: true

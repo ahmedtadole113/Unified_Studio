@@ -1,0 +1,286 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "icon": "external link",
+      "tags": [],
+      "targetBlank": true,
+      "title": "Open Aariz Advance AI platform (A³P)",
+      "type": "link",
+      "url": "http://localhost:8000"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "SLOs, Golden Signals & Infrastructure Health",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 98 },
+              { "color": "green", "value": 99.5 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "100 * (1 - (sum(rate(app_http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(app_http_requests_total[5m])), 0.001)))",
+          "refId": "A"
+        }
+      ],
+      "title": "Availability SLI (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 250 },
+              { "color": "red", "value": 350 }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "1000 * histogram_quantile(0.99, sum(rate(app_request_latency_seconds_bucket[1m])) by (le))",
+          "refId": "A"
+        }
+      ],
+      "title": "p99 Latency",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "app_cpu_usage_percent", "refId": "A" }],
+      "title": "CPU Utilization",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 650 },
+              { "color": "red", "value": 800 }
+            ]
+          },
+          "unit": "decmbytes"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "app_memory_usage_mb", "refId": "A" }],
+      "title": "Memory Usage",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.45 },
+              { "color": "red", "value": 0.65 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "ai_model_drift_score", "refId": "A" }],
+      "title": "AI Model Drift Score",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 8 },
+              { "color": "red", "value": 12 }
+            ]
+          },
+          "unit": "currencyUSD"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "ai_gpu_cost_usd_hourly", "refId": "A" }],
+      "title": "GPU Hourly Burn",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 5 },
+      "id": 7,
+      "targets": [
+        { "expr": "app_cpu_usage_percent", "legendFormat": "CPU %", "refId": "A" }
+      ],
+      "title": "CPU Utilization Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "decmbytes" } },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 5 },
+      "id": 8,
+      "targets": [
+        { "expr": "app_memory_usage_mb", "legendFormat": "Memory (MB)", "refId": "A" }
+      ],
+      "title": "Memory Consumption Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 12 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "1000 * histogram_quantile(0.50, sum(rate(app_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "1000 * histogram_quantile(0.95, sum(rate(app_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "1000 * histogram_quantile(0.99, sum(rate(app_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Request Latency Quantiles (p50 / p95 / p99)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 12 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum(rate(app_http_requests_total{status_class=\"2xx\"}[1m]))",
+          "legendFormat": "2xx / sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(app_http_requests_total{status_class=\"5xx\"}[1m]))",
+          "legendFormat": "5xx / sec",
+          "refId": "B"
+        }
+      ],
+      "title": "Request Throughput & Error Rate",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+      "id": 101,
+      "title": "AI / Agentic Production Failure Modes & FinOps",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1 } },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 20 },
+      "id": 11,
+      "targets": [
+        { "expr": "ai_model_drift_score", "legendFormat": "Model Drift", "refId": "A" },
+        { "expr": "ai_train_serve_skew_score", "legendFormat": "Train/Serve Skew", "refId": "B" },
+        { "expr": "ai_output_variance_score", "legendFormat": "Output Variance", "refId": "C" }
+      ],
+      "title": "AI Drift, Train/Serve Skew & Output Variance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 20 },
+      "id": 12,
+      "targets": [
+        { "expr": "ai_token_usage_rate", "legendFormat": "Tokens / min", "refId": "A" },
+        { "expr": "ai_gpu_cost_usd_hourly * 1000", "legendFormat": "GPU Cost ($/hr x1000)", "refId": "B" }
+      ],
+      "title": "Token Throughput & GPU Spend Dynamics",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["sre", "aiops", "slo"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "",
+  "title": "Aariz Advance AI platform (A³P) — SRE & AIOps (Prometheus)",
+  "uid": "aiops-sre-command-center",
+  "version": 1,
+  "weekStart": ""
+}
+

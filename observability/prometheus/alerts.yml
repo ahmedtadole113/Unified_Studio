@@ -1,0 +1,103 @@
+groups:
+  - name: unified_platform_alerts
+    rules:
+      - alert: ServiceUnavailable
+        expr: ues_service_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          domain: platform
+        annotations:
+          summary: "Service {{ $labels.service_id }} is unavailable"
+          description: "Registered service {{ $labels.service_id }} ({{ $labels.category }}) failed health probes."
+
+      - alert: HighContainerCPU
+        expr: ues_container_cpu_percent > 85
+        for: 20s
+        labels:
+          severity: warning
+          domain: infrastructure
+        annotations:
+          summary: "High container CPU on {{ $labels.container_name }}: {{ $value | printf \"%.1f\" }}%"
+          description: "Container CPU exceeded 85% threshold."
+
+      - alert: HighContainerMemory
+        expr: ues_container_memory_percent > 88
+        for: 20s
+        labels:
+          severity: critical
+          domain: infrastructure
+        annotations:
+          summary: "High container memory on {{ $labels.container_name }}: {{ $value | printf \"%.1f\" }}%"
+          description: "Container memory approaching cgroup limit (OOMKill risk)."
+
+      - alert: ContainerRestartBurst
+        expr: ues_container_restarts_total >= 3
+        for: 10s
+        labels:
+          severity: critical
+          domain: infrastructure
+        annotations:
+          summary: "Container {{ $labels.container_name }} restart count = {{ $value }}"
+          description: "Repeated container restarts detected."
+
+      - alert: HighCpuUsage
+        expr: app_cpu_usage_percent > 85
+        for: 10s
+        labels:
+          severity: warning
+          domain: infrastructure
+        annotations:
+          summary: "App CPU saturation: {{ $value | printf \"%.1f\" }}%"
+          description: "Simulated/target application CPU exceeded 85%."
+
+      - alert: HighMemorySaturation
+        expr: app_memory_usage_mb > 800
+        for: 10s
+        labels:
+          severity: critical
+          domain: infrastructure
+        annotations:
+          summary: "App memory saturation: {{ $value | printf \"%.0f\" }} MB"
+          description: "Memory exceeded 800 MB threshold."
+
+      - alert: FastErrorBudgetBurn
+        expr: ues_slo_burn_rate{window="5m"} > 14.4
+        for: 15s
+        labels:
+          severity: critical
+          domain: slo
+        annotations:
+          summary: "Fast error budget burn on {{ $labels.slo_id }} ({{ $value | printf \"%.1f\" }}x)"
+          description: "Multi-window burn rate exceeded 14.4x threshold; trigger release freeze."
+
+      - alert: ErrorBudgetExhausting
+        expr: ues_error_budget_remaining_pct < 15
+        for: 15s
+        labels:
+          severity: critical
+          domain: slo
+        annotations:
+          summary: "Error budget remaining < 15% for {{ $labels.slo_id }}"
+          description: "SLO error budget below release safety floor."
+
+      - alert: LatencySLOBreach
+        expr: histogram_quantile(0.99, sum(rate(app_request_latency_seconds_bucket[1m])) by (le)) > 0.35
+        for: 15s
+        labels:
+          severity: warning
+          domain: slo
+        annotations:
+          summary: "p99 latency above 350ms SLO ({{ $value | printf \"%.2f\" }}s)"
+          description: "Tail latency breached 350ms threshold."
+
+      - alert: AIModelDriftDetected
+        expr: ai_model_drift_score > 0.65
+        for: 10s
+        labels:
+          severity: warning
+          domain: ai_reliability
+        annotations:
+          summary: "AI model drift elevated ({{ $value | printf \"%.2f\" }})"
+          description: "Model feature distribution drifted above 0.65."
+
