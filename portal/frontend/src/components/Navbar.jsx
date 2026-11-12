@@ -8,6 +8,8 @@ import {
   ShieldAlert,
   DollarSign,
   Sparkles,
+  BookOpen,
+  Layers,
   Sliders,
   LogOut,
 } from 'lucide-react';
@@ -15,6 +17,8 @@ import {
 export const NAV_DOMAINS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, color: '#2997ff' },
   { id: 'data_engineering', label: 'Data Engineering', icon: Database, color: '#ff453a' },
+  { id: 'roadmaps', label: 'DE & SRE Roadmaps', icon: BookOpen, color: '#bf5af2' },
+  { id: 'workspaces', label: 'All Apps', icon: Layers, color: '#5ac8fa' },
   { id: 'streaming', label: 'Streaming', icon: Radio, color: '#ff9f0a' },
   { id: 'infrastructure', label: 'Infrastructure', icon: Server, color: '#64d2ff' },
   { id: 'observability', label: 'Observability', icon: Activity, color: '#30d158' },

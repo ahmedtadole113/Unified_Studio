@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { apiFetch, API_V1 } from '../api/client';
 
-export default function PlatformOverview({ user, onNavigate, onHealthUpdate }) {
+export default function PlatformOverview({ user, onNavigate, onOpenWorkspace, onHealthUpdate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -294,9 +294,14 @@ export default function PlatformOverview({ user, onNavigate, onHealthUpdate }) {
                       )
                     )}
                     {s.ui_url && (
-                      <a href={s.ui_url} target="_blank" rel="noreferrer" className="apple-btn apple-btn-secondary" style={{ padding: '3px 7px' }} title="Open UI">
+                      <button
+                        className="apple-btn apple-btn-secondary"
+                        style={{ padding: '3px 7px' }}
+                        title="Open UI in Same Window"
+                        onClick={() => onOpenWorkspace?.(s.ui_url, s.service_name)}
+                      >
                         <ExternalLink size={11} />
-                      </a>
+                      </button>
                     )}
                   </div>
                 </td>

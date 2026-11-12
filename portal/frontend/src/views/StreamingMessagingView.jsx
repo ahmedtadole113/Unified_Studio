@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ExternalLink, MessageSquare, Radio, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { apiFetch, API_V1 } from '../api/client';
 
-export default function StreamingMessagingView({ user }) {
+export default function StreamingMessagingView({ user, onOpenWorkspace }) {
   const [data, setData] = useState(null);
   const [topicName, setTopicName] = useState('ues-events');
   const [kafkaMsg, setKafkaMsg] = useState('{"event":"test_pipeline_heartbeat","status":"ok"}');
@@ -98,9 +98,9 @@ export default function StreamingMessagingView({ user }) {
             <span className="studio-section-title">
               Kafka / Redpanda ({kafka.available ? `Online · Lag: ${kafka.total_consumer_lag}` : 'Offline'})
             </span>
-            <a href="/services/eventhub/" target="_blank" rel="noreferrer" className="apple-btn apple-btn-secondary" style={{ fontSize: '0.72rem' }}>
+            <button className="apple-btn apple-btn-secondary" style={{ fontSize: '0.72rem' }} onClick={() => onOpenWorkspace?.('/services/eventhub/', 'Redpanda Console')}>
               <ExternalLink size={11} /> Redpanda Console
-            </a>
+            </button>
           </div>
 
           {isAdmin && kafka.available && (
@@ -152,9 +152,9 @@ export default function StreamingMessagingView({ user }) {
             <span className="studio-section-title">
               <MessageSquare size={12} /> RabbitMQ ({rabbit.available ? `v${rabbit.rabbitmq_version} · ${rabbit.total_messages} msgs` : 'Offline'})
             </span>
-            <a href="/services/servicebus/" target="_blank" rel="noreferrer" className="apple-btn apple-btn-secondary" style={{ fontSize: '0.72rem' }}>
+            <button className="apple-btn apple-btn-secondary" style={{ fontSize: '0.72rem' }} onClick={() => onOpenWorkspace?.('/services/servicebus/', 'RabbitMQ Management')}>
               <ExternalLink size={11} /> RabbitMQ UI
-            </a>
+            </button>
           </div>
 
           <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>

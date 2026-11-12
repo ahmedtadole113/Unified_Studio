@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { apiFetch, API_V1 } from '../api/client';
+import { SreRoadmapBrowser } from './RoadmapsView';
 
 export default function SreOperationsView({ user }) {
   const [subTab, setSubTab] = useState('slo');
@@ -387,19 +388,7 @@ export default function SreOperationsView({ user }) {
         </div>
       )}
 
-      {subTab === 'roadmap' && (
-        <div className="studio-section-card">
-          <span className="studio-section-title">45-Day SRE & DevOps Mastery Roadmap ({roadmap?.days?.length || 0} Days Loaded)</span>
-          <div className="labs-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', marginTop: '0.5rem' }}>
-            {(roadmap?.days || []).slice(0, 15).map((d) => (
-              <div key={d.day} className="reference-card-item">
-                <strong>Day {d.day}: {d.topic || d.title}</strong>
-                <div className="reference-card-desc">{d.phase || d.goal || ''}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {subTab === 'roadmap' && <SreRoadmapBrowser />}
     </div>
   );
 }

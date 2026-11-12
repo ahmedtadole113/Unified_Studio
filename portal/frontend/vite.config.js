@@ -83,7 +83,28 @@ export default defineConfig({
       '/services/prometheus': {
         target: 'http://prometheus:9090',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/services\/prometheus/, '')
+        rewrite: (path) => path.replace(/^\/services\/prometheus/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            delete proxyRes.headers['x-frame-options'];
+            delete proxyRes.headers['content-security-policy'];
+          });
+        }
+      },
+      '/services/spark': {
+        target: 'http://spark-processing:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/services\/spark/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            delete proxyRes.headers['x-frame-options'];
+            delete proxyRes.headers['content-security-policy'];
+          });
+        }
+      },
+      '/static': {
+        target: 'http://spark-processing:8080',
+        changeOrigin: true
       }
     }
   }

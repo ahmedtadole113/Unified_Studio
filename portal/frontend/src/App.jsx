@@ -10,10 +10,14 @@ import ObservabilityView from './views/ObservabilityView';
 import SreOperationsView from './views/SreOperationsView';
 import FinOpsView from './views/FinOpsView';
 import AiOpsView from './views/AiOpsView';
+import RoadmapsView from './views/RoadmapsView';
+import StackWorkspacesView from './views/StackWorkspacesView';
 
 export default function App() {
   const [auth, setAuth] = useState(() => getStoredAuth());
   const [activeDomain, setActiveDomain] = useState('overview');
+  const [activeWorkspace, setActiveWorkspace] = useState({ title: 'JupyterLab Notebooks', url: '/services/databricks/' });
+  const [pendingDePractice, setPendingDePractice] = useState(null);
   const [healthCounts, setHealthCounts] = useState({ healthy: 0, total: 0 });
   const [showSettings, setShowSettings] = useState(false);
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
@@ -115,12 +119,60 @@ export default function App() {
 
       <main className="content-area">
         {activeDomain === 'overview' && (
-          <PlatformOverview user={auth} onNavigate={setActiveDomain} onHealthUpdate={setHealthCounts} />
+          <PlatformOverview
+            user={auth}
+            onNavigate={setActiveDomain}
+            onOpenWorkspace={(url, title) => {
+              setActiveWorkspace({ url, title: title || 'Stack App' });
+              setActiveDomain('workspaces');
+            }}
+            onHealthUpdate={setHealthCounts}
+          />
         )}
-        {activeDomain === 'data_engineering' && <DataEngineeringView user={auth} />}
-        {activeDomain === 'streaming' && <StreamingMessagingView user={auth} />}
+        {activeDomain === 'data_engineering' && (
+          <DataEngineeringView
+            user={auth}
+            pendingPractice={pendingDePractice}
+            onClearPendingPractice={() => setPendingDePractice(null)}
+            onOpenWorkspace={(url, title) => {
+              setActiveWorkspace({ url, title: title || 'Stack App' });
+              setActiveDomain('workspaces');
+            }}
+          />
+        )}
+        {activeDomain === 'roadmaps' && (
+          <RoadmapsView
+            onLaunchDePractice={(dayObj) => {
+              setPendingDePractice(dayObj);
+              setActiveDomain('data_engineering');
+            }}
+          />
+        )}
+        {activeDomain === 'workspaces' && (
+          <StackWorkspacesView
+            activeWorkspace={activeWorkspace}
+            onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
+          />
+        )}
+        {activeDomain === 'streaming' && (
+          <StreamingMessagingView
+            user={auth}
+            onOpenWorkspace={(url, title) => {
+              setActiveWorkspace({ url, title: title || 'Stack App' });
+              setActiveDomain('workspaces');
+            }}
+          />
+        )}
         {activeDomain === 'infrastructure' && <InfrastructureView user={auth} />}
-        {activeDomain === 'observability' && <ObservabilityView user={auth} />}
+        {activeDomain === 'observability' && (
+          <ObservabilityView
+            user={auth}
+            onOpenWorkspace={(url, title) => {
+              setActiveWorkspace({ url, title: title || 'Stack App' });
+              setActiveDomain('workspaces');
+            }}
+          />
+        )}
         {activeDomain === 'sre' && <SreOperationsView user={auth} />}
         {activeDomain === 'finops' && <FinOpsView user={auth} />}
         {activeDomain === 'aiops' && <AiOpsView user={auth} geminiKey={geminiKey} />}

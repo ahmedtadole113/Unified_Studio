@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, ExternalLink, Play, RefreshCw, Search } from 'lucide-react';
 import { apiFetch, API_V1 } from '../api/client';
 
-export default function ObservabilityView() {
+export default function ObservabilityView({ onOpenWorkspace }) {
   const [subTab, setSubTab] = useState('metrics');
   const [obs, setObs] = useState(null);
   const [promql, setPromql] = useState('sum(ues_container_memory_mb)');
@@ -81,9 +81,9 @@ export default function ObservabilityView() {
         <div className="studio-section-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <span className="studio-section-title">PromQL Interactive Explorer ({obs?.prometheus_reachable ? 'Prometheus Connected' : 'Prometheus Unreachable'})</span>
-            <a href="http://localhost:9090" target="_blank" rel="noreferrer" className="apple-btn apple-btn-secondary" style={{ fontSize: '0.72rem' }}>
+            <button className="apple-btn apple-btn-secondary" style={{ fontSize: '0.72rem' }} onClick={() => onOpenWorkspace?.('/services/prometheus/graph', 'Prometheus UI')}>
               <ExternalLink size={11} /> Prometheus UI
-            </a>
+            </button>
           </div>
           <div style={{ display: 'flex', gap: '8px', marginBottom: '0.6rem' }}>
             <input className="apple-input" value={promql} onChange={(e) => setPromql(e.target.value)} style={{ flex: 1, fontFamily: 'monospace' }} />
@@ -102,19 +102,19 @@ export default function ObservabilityView() {
         <div className="studio-section-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
             <span className="studio-section-title">Provisioned Grafana Dashboards (Auth Protected — No Anonymous Admin)</span>
-            <a href="/services/monitoring/" target="_blank" rel="noreferrer" className="apple-btn apple-btn-primary" style={{ fontSize: '0.74rem' }}>
+            <button className="apple-btn apple-btn-primary" style={{ fontSize: '0.74rem' }} onClick={() => onOpenWorkspace?.('/services/monitoring/', 'Grafana Unified Dashboards')}>
               <ExternalLink size={12} /> Open Grafana
-            </a>
+            </button>
           </div>
           <div className="labs-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
             {(obs?.grafana_dashboards || []).map((d) => (
-              <a key={d.id} href={d.url} target="_blank" rel="noreferrer" className="apple-lab-card" style={{ textDecoration: 'none' }}>
+              <div key={d.id} className="apple-lab-card" style={{ cursor: 'pointer' }} onClick={() => onOpenWorkspace?.(d.url, `Grafana · ${d.title}`)}>
                 <div>
                   <span className="lab-tag" style={{ color: 'var(--apple-cyan)' }}>Provisioned</span>
                   <h4 className="lab-title" style={{ marginTop: '0.4rem' }}>{d.title}</h4>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--apple-blue)' }}>Open in Grafana →</span>
-              </a>
+                <span style={{ fontSize: '0.72rem', color: 'var(--apple-blue)' }}>Open in Same Window →</span>
+              </div>
             ))}
           </div>
         </div>
