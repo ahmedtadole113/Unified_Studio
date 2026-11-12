@@ -147,3 +147,19 @@ def test_core_domain_endpoints():
         assert corr.status_code == 200
         assert "signals" in corr.json()
 
+        # 30-Day Data Engineering Roadmap & Interview Scenarios
+        de_rm = client.get("/api/v1/data-engineering/roadmap", headers=hdr)
+        assert de_rm.status_code == 200
+        de_rm_j = de_rm.json()
+        assert len(de_rm_j["phases"]) == 6
+        assert len(de_rm_j["days"]) == 30
+        assert len(de_rm_j["days"][0]["interview_questions"]) >= 3
+
+        prog = client.put(
+            "/api/v1/data-engineering/roadmap/1/progress",
+            headers=hdr,
+            json={"completed": True, "notes": "Reviewed OLTP vs OLAP and Columnar Parquet"},
+        )
+        assert prog.status_code == 200
+        assert prog.json()["completed"] is True
+

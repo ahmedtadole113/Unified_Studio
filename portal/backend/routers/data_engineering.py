@@ -6,7 +6,8 @@ from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from core import audit, security
+from core import audit, database, security
+from de_content import roadmap as de_roadmap
 from services import de_client
 
 router = APIRouter(tags=["Data Engineering"])
@@ -20,6 +21,11 @@ class SqlQueryRequest(BaseModel):
 class PySparkExecRequest(BaseModel):
     code: str
     app_name: str = "UES_PySpark_Studio"
+
+
+class DeStudyProgressRequest(BaseModel):
+    completed: bool
+    notes: str = ""
 
 
 @router.get("/api/v1/data-engineering/overview")
@@ -85,6 +91,22 @@ async def airflow_trigger(dag_id: str, admin: Dict[str, str] = Depends(security.
         return res
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.get("/api/v1/data-engineering/roadmap")
+def get_de_roadmap(user: Dict[str, str] = Depends(security.get_current_user)):
+    return {
+        "phases": de_roadmap.DE_PHASES,
+        "days": de_roadmap.DE_ROADMAP_DAYS,
+        "progress": database.get_de_study_progress(),
+    }
+
+
+@router.put("/api/v1/data-engineering/roadmap/{day}/progress")
+def save_de_roadmap_progress(day: int, req: DeStudyProgressRequest, user: Dict[str, str] = Depends(security.get_current_user)):
+    if day < 1 or day > 30:
+        raise HTTPException(status_code=400, detail="Day must be between 1 and 30")
+    return database.upsert_de_study_progress(day, req.completed, req.notes)
 
 
 # Preserved endpoint used by Airflow DAG `project3_incremental_load.py` (unauthenticated internal service-to-service)

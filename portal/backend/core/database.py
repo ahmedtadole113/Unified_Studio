@@ -186,6 +186,13 @@ def init_db() -> None:
                 updated_at INTEGER NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS de_study_progress (
+                day INTEGER PRIMARY KEY,
+                completed INTEGER NOT NULL DEFAULT 0,
+                notes TEXT NOT NULL DEFAULT '',
+                updated_at INTEGER NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS audit_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL,
@@ -678,6 +685,29 @@ def upsert_study_progress(day: int, completed: bool, notes: str) -> Dict[str, An
             (int(day), 1 if completed else 0, notes or "", now),
         )
         row = dict(conn.execute("SELECT * FROM study_progress WHERE day = ?", (int(day),)).fetchone())
+        row["completed"] = bool(row["completed"])
+        return row
+
+
+def get_de_study_progress() -> Dict[int, Dict[str, Any]]:
+    with _lock, _connect() as conn:
+        rows = _rows_to_dicts(conn.execute("SELECT * FROM de_study_progress ORDER BY day ASC").fetchall())
+        return {int(r["day"]): {"day": int(r["day"]), "completed": bool(r["completed"]), "notes": r["notes"], "updated_at": r["updated_at"]} for r in rows}
+
+
+def upsert_de_study_progress(day: int, completed: bool, notes: str) -> Dict[str, Any]:
+    now = int(time.time())
+    with _lock, _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO de_study_progress (day, completed, notes, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(day) DO UPDATE SET
+                completed=excluded.completed, notes=excluded.notes, updated_at=excluded.updated_at
+            """,
+            (int(day), 1 if completed else 0, notes or "", now),
+        )
+        row = dict(conn.execute("SELECT * FROM de_study_progress WHERE day = ?", (int(day),)).fetchone())
         row["completed"] = bool(row["completed"])
         return row
 
