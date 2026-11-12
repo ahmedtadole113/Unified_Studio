@@ -174,12 +174,21 @@ export default function PlatformOverview({ user, onNavigate, onHealthUpdate }) {
         </div>
       </div>
 
-      {/* 3 Execution Profiles for M4 8GB */}
+      {/* Unified Stack (Single Profile) with Separated DE & SRE Stacks */}
       <div className="section-header">
         <div>
-          <h2 className="section-title"><Cpu size={17} style={{ color: 'var(--apple-blue)' }} /> M4 8 GB Execution Profiles</h2>
-          <p className="section-subtitle">Start or stop domain stacks selectively to stay within MacBook 8 GB RAM limits</p>
+          <h2 className="section-title"><Cpu size={17} style={{ color: 'var(--apple-blue)' }} /> Unified Stack Architecture (Separated DE & SRE Stacks)</h2>
+          <p className="section-subtitle">All services share one unified default profile while keeping Data Engineering and SRE stacks cleanly separated</p>
         </div>
+        {isAdmin && (
+          <button
+            className="apple-btn apple-btn-primary"
+            disabled={busyId === 'stack-all'}
+            onClick={() => handleProfileAction('stack-all', 'up')}
+          >
+            <Play size={12} /> Start Full Unified Stack
+          </button>
+        )}
       </div>
       <div className="labs-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', marginBottom: '1.5rem' }}>
         {(finops.profiles || []).map((prof) => (
@@ -202,9 +211,9 @@ export default function PlatformOverview({ user, onNavigate, onHealthUpdate }) {
                   onClick={() => handleProfileAction(prof.id, 'up')}
                   style={{ flex: 1 }}
                 >
-                  <Play size={12} /> Start Profile
+                  <Play size={12} /> Start Stack
                 </button>
-                {prof.id !== 'profile-core' && (
+                {prof.id !== 'stack-core' && (
                   <button
                     className="apple-btn apple-btn-danger"
                     disabled={busyId === prof.id}

@@ -339,15 +339,33 @@ def compose_services_action(compose_services: List[str], action: str) -> Dict[st
     return {"services": compose_services, "action": action, "stdout": res.stdout.strip()}
 
 
+STACK_SERVICES = {
+    "stack-core": ["portal-backend", "portal-frontend", "postgres-dw", "prometheus"],
+    "profile-core": ["portal-backend", "portal-frontend", "postgres-dw", "prometheus"],
+    "stack-de": ["minio", "mc", "spark-processing", "rest", "airflow-webserver", "airflow-scheduler", "pgadmin", "redpanda", "redpanda-console", "rabbitmq"],
+    "profile-data-engineering": ["minio", "mc", "spark-processing", "rest", "airflow-webserver", "airflow-scheduler", "pgadmin", "redpanda", "redpanda-console", "rabbitmq"],
+    "stack-sre": ["grafana", "loki", "promtail", "tempo", "alertmanager", "data-generator", "practice-lab"],
+    "profile-sre": ["grafana", "loki", "promtail", "tempo", "alertmanager", "data-generator", "practice-lab"],
+}
+
+
 def compose_profile_action(profile: str, action: str) -> Dict[str, Any]:
-    """Start or stop a validated Docker Compose profile."""
-    if profile not in ALLOWED_COMPOSE_PROFILES:
-        raise ValueError(f"Unknown profile '{profile}'")
+    """Start or stop the Unified Stack, Data Engineering Stack, or SRE Stack."""
     if action not in {"up", "stop"}:
         raise ValueError("Action must be 'up' or 'stop'")
-    cmd = ["docker", "compose", "--profile", profile, "up", "-d"] if action == "up" else ["docker", "compose", "--profile", profile, "stop"]
-    res = subprocess.run(cmd, cwd=settings.COMPOSE_PROJECT_DIR, capture_output=True, text=True, timeout=120)
+
+    if profile in ("stack-all", "unified"):
+        cmd = ["docker", "compose", "up", "-d"] if action == "up" else ["docker", "compose", "stop"]
+    elif profile in STACK_SERVICES:
+        svcs = STACK_SERVICES[profile]
+        cmd = (["docker", "compose", "up", "-d"] + svcs) if action == "up" else (["docker", "compose", "stop"] + svcs)
+    elif profile in ALLOWED_COMPOSE_PROFILES:
+        cmd = ["docker", "compose", "--profile", profile, "up", "-d"] if action == "up" else ["docker", "compose", "--profile", profile, "stop"]
+    else:
+        raise ValueError(f"Unknown stack or profile '{profile}'")
+
+    res = subprocess.run(cmd, cwd=settings.COMPOSE_PROJECT_DIR, capture_output=True, text=True, timeout=180)
     if res.returncode != 0:
-        raise RuntimeError(res.stderr.strip() or res.stdout.strip() or "docker compose profile command failed")
+        raise RuntimeError(res.stderr.strip() or res.stdout.strip() or "docker compose stack command failed")
     return {"profile": profile, "action": action, "stdout": res.stdout.strip()}
 
