@@ -104,8 +104,8 @@ def get_de_roadmap(user: Dict[str, str] = Depends(security.get_current_user)):
 
 @router.put("/api/v1/data-engineering/roadmap/{day}/progress")
 def save_de_roadmap_progress(day: int, req: DeStudyProgressRequest, user: Dict[str, str] = Depends(security.get_current_user)):
-    if day < 1 or day > 30:
-        raise HTTPException(status_code=400, detail="Day must be between 1 and 30")
+    if day < 1 or day > 60:
+        raise HTTPException(status_code=400, detail="Day must be between 1 and 60")
     return database.upsert_de_study_progress(day, req.completed, req.notes)
 
 

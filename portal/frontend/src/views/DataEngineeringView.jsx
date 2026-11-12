@@ -167,7 +167,7 @@ export default function DataEngineeringView({ user, pendingPractice, onClearPend
           { id: 'airflow', label: 'Airflow & DAGs' },
           { id: 'lakehouse', label: 'MinIO & Medallion / DQ / CDC' },
           { id: 'jupyter', label: 'JupyterLab Notebooks' },
-          { id: 'roadmap', label: '30-Day DE Roadmap & Interviews' },
+          { id: 'roadmap', label: '60-Day DE + Azure Roadmap' },
         ].map((t) => (
           <button
             key={t.id}

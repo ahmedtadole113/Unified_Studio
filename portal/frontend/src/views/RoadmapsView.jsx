@@ -68,13 +68,13 @@ export function DeRoadmapBrowser({ onLaunchPractice }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div className="studio-section-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
         <div>
-          <span className="studio-section-title"><BookOpen size={12} /> 30-Day Data Engineering Mastery &amp; Interview Roadmap</span>
+          <span className="studio-section-title"><BookOpen size={12} /> 60-Day Data Engineering (PySpark + Azure 6-Yr Senior) Mastery Roadmap</span>
           <div style={{ fontSize: '0.78rem', color: 'var(--apple-mint)', marginTop: '2px' }}>
-            Progress: {completedCount}/{days.length || 30} Days Completed ({Math.round((completedCount / Math.max(1, days.length)) * 100)}%)
+            Progress: {completedCount}/{days.length || 60} Days Completed ({Math.round((completedCount / Math.max(1, days.length)) * 100)}%)
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          <button className={`copilot-chip ${selectedPhase === 'all' ? 'active-chip' : ''}`} onClick={() => setSelectedPhase('all')}>All 30 Days</button>
+          <button className={`copilot-chip ${selectedPhase === 'all' ? 'active-chip' : ''}`} onClick={() => setSelectedPhase('all')}>All 60 Days</button>
           {phases.map((p) => (
             <button key={p.id} className={`copilot-chip ${String(selectedPhase) === String(p.id) ? 'active-chip' : ''}`} onClick={() => setSelectedPhase(p.id)}>
               P{p.id}: {p.days}
@@ -405,7 +405,7 @@ export default function RoadmapsView({ onLaunchDePractice }) {
             className={`apple-btn ${track === 'de' ? 'apple-btn-primary' : 'apple-btn-secondary'}`}
             onClick={() => setTrack('de')}
           >
-            <Database size={13} /> Data Engineering (30 Days)
+            <Database size={13} /> Data Engineering (60 Days)
           </button>
           <button
             className={`apple-btn ${track === 'sre' ? 'apple-btn-primary' : 'apple-btn-secondary'}`}
