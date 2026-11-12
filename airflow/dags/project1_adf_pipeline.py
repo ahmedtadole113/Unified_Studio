@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.providers.postgres.operators.PostgresOperator import PostgresOperator
+from airflow.providers.postgres.operators.postgres import PostgresOperator
 import boto3
 import psycopg2
 from psycopg2.extras import execute_values
@@ -31,8 +31,8 @@ with DAG(
         s3 = boto3.client(
             's3',
             endpoint_url='http://minio:9000',
-            aws_access_key_id='admin',
-            aws_secret_access_key='password',
+            aws_access_key_id=os.environ.get('MINIO_ROOT_USER', 'admin'),
+            aws_secret_access_key=os.environ.get('MINIO_ROOT_PASSWORD', 'ues_minio_secret'),
             region_name='us-east-1'
         )
         
@@ -84,8 +84,8 @@ with DAG(
         s3 = boto3.client(
             's3',
             endpoint_url='http://minio:9000',
-            aws_access_key_id='admin',
-            aws_secret_access_key='password',
+            aws_access_key_id=os.environ.get('MINIO_ROOT_USER', 'admin'),
+            aws_secret_access_key=os.environ.get('MINIO_ROOT_PASSWORD', 'ues_minio_secret'),
             region_name='us-east-1'
         )
         
@@ -157,8 +157,8 @@ with DAG(
         s3 = boto3.client(
             's3',
             endpoint_url='http://minio:9000',
-            aws_access_key_id='admin',
-            aws_secret_access_key='password',
+            aws_access_key_id=os.environ.get('MINIO_ROOT_USER', 'admin'),
+            aws_secret_access_key=os.environ.get('MINIO_ROOT_PASSWORD', 'ues_minio_secret'),
             region_name='us-east-1'
         )
         
@@ -215,8 +215,8 @@ with DAG(
         s3 = boto3.client(
             's3',
             endpoint_url='http://minio:9000',
-            aws_access_key_id='admin',
-            aws_secret_access_key='password',
+            aws_access_key_id=os.environ.get('MINIO_ROOT_USER', 'admin'),
+            aws_secret_access_key=os.environ.get('MINIO_ROOT_PASSWORD', 'ues_minio_secret'),
             region_name='us-east-1'
         )
         

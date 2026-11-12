@@ -1,9 +1,12 @@
 """Safe Docker engine integration (container lifecycle, stats, logs, networks, volumes)."""
 
 import concurrent.futures
+import copy
 import logging
 import subprocess
-from typing import Any, Dict, List, Optional
+import threading
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
 import docker
 from docker.errors import DockerException, NotFound
@@ -11,6 +14,15 @@ from docker.errors import DockerException, NotFound
 from core.config import settings
 
 logger = logging.getLogger("ues.docker")
+
+_CONTAINERS_CACHE: Dict[Tuple[bool, bool], Tuple[float, List[Dict[str, Any]]]] = {}
+_CACHE_LOCK = threading.Lock()
+_CACHE_TTL_SEC = 4.0
+
+
+def _invalidate_cache() -> None:
+    with _CACHE_LOCK:
+        _CONTAINERS_CACHE.clear()
 
 ALLOWED_COMPOSE_PROFILES = {
     "profile-core",
@@ -166,6 +178,13 @@ def get_container_summary(container_name: str, include_stats: bool = True) -> Di
 
 def list_containers(all_containers: bool = True, include_stats: bool = True) -> List[Dict[str, Any]]:
     """List Docker containers with real status, restart counts, and resource usage."""
+    cache_key = (bool(all_containers), bool(include_stats))
+    now = time.monotonic()
+    with _CACHE_LOCK:
+        cached = _CONTAINERS_CACHE.get(cache_key)
+        if cached and (now - cached[0]) < _CACHE_TTL_SEC:
+            return copy.deepcopy(cached[1])
+
     client = _get_client()
     if not client:
         return []
@@ -173,7 +192,12 @@ def list_containers(all_containers: bool = True, include_stats: bool = True) -> 
     try:
         for c in client.containers.list(all=all_containers):
             try:
+                if c.name.startswith("k8s_"):
+                    continue
                 attrs = c.attrs or {}
+                labels = attrs.get("Config", {}).get("Labels") or {}
+                if not labels.get("com.docker.compose.project") and c.name not in ALLOWED_SERVICES and not c.name.startswith("ues-"):
+                    continue
                 state = attrs.get("State", {})
                 health = (state.get("Health") or {}).get("Status", "none")
                 ports = []
@@ -224,10 +248,13 @@ def list_containers(all_containers: bool = True, include_stats: bool = True) -> 
                     c2.close()
 
             if running_items:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(running_items))) as pool:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=min(24, len(running_items))) as pool:
                     list(pool.map(_fetch_stat, running_items))
 
-        return sorted(out, key=lambda x: (not x["running"], x["name"]))
+        result = sorted(out, key=lambda x: (not x["running"], x["name"]))
+        with _CACHE_LOCK:
+            _CONTAINERS_CACHE[cache_key] = (time.monotonic(), copy.deepcopy(result))
+        return result
     except Exception as exc:
         logger.error("Failed to list containers: %s", exc)
         return []
@@ -315,6 +342,7 @@ def container_action(container_name: str, action: str) -> Dict[str, Any]:
         elif action == "restart":
             c.restart(timeout=10)
         c.reload()
+        _invalidate_cache()
         return {"container": container_name, "action": action, "status": c.status}
     except NotFound:
         raise
@@ -340,6 +368,7 @@ def compose_services_action(compose_services: List[str], action: str) -> Dict[st
     res = subprocess.run(cmd, cwd=settings.COMPOSE_PROJECT_DIR, capture_output=True, text=True, timeout=90)
     if res.returncode != 0:
         raise RuntimeError(res.stderr.strip() or res.stdout.strip() or "docker compose failed")
+    _invalidate_cache()
     return {"services": compose_services, "action": action, "stdout": res.stdout.strip()}
 
 
@@ -371,5 +400,6 @@ def compose_profile_action(profile: str, action: str) -> Dict[str, Any]:
     res = subprocess.run(cmd, cwd=settings.COMPOSE_PROJECT_DIR, capture_output=True, text=True, timeout=180)
     if res.returncode != 0:
         raise RuntimeError(res.stderr.strip() or res.stdout.strip() or "docker compose stack command failed")
+    _invalidate_cache()
     return {"profile": profile, "action": action, "stdout": res.stdout.strip()}
 

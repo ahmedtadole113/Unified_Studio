@@ -302,7 +302,7 @@ def execute_pyspark_code(code: str, app_name: str = "UES_PySpark_Studio") -> Dic
             code,
         ]
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
             duration_ms = round((time.time() - t0) * 1000, 2)
             return {
                 "status": "ok" if proc.returncode == 0 else "error",
@@ -312,7 +312,7 @@ def execute_pyspark_code(code: str, app_name: str = "UES_PySpark_Studio") -> Dic
                 "duration_ms": duration_ms,
             }
         except subprocess.TimeoutExpired:
-            return {"status": "error", "exit_code": 124, "stdout": "", "stderr": "PySpark execution timed out (45s limit)", "duration_ms": 45000.0}
+            return {"status": "error", "exit_code": 124, "stdout": "", "stderr": "PySpark execution timed out (90s limit)", "duration_ms": 90000.0}
         except Exception as exc:
             return {"status": "error", "exit_code": 1, "stdout": "", "stderr": str(exc), "duration_ms": round((time.time() - t0) * 1000, 2)}
 

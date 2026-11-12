@@ -25,9 +25,9 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-synapse_dw}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
-      - POSTGRES_PORT=5432
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-password}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-ues_minio_secret}
+      - POSTGRES_PORT=5432
       - AIRFLOW_USER=${AIRFLOW_USER:-admin}
       - AIRFLOW_PASSWORD=${AIRFLOW_PASSWORD:-admin}
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-guest}
@@ -50,7 +50,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 512M
 
   portal-frontend:
     build:
@@ -219,6 +219,7 @@ services:
           memory: 128M
 
   airflow-webserver:
+    image: unified-studio-airflow:latest
     build:
       context: ./airflow
     container_name: airflow-webserver
@@ -237,12 +238,15 @@ services:
       - AIRFLOW__CORE__DAMPENING_PERIOD=0
       - AIRFLOW__WEBSERVER__X_FRAME_ENABLED=True
       - AIRFLOW__WEBSERVER__X_FRAME_OPTIONS=ALLOWALL
+      - AIRFLOW__WEBSERVER__WORKERS=2
       - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
       - AIRFLOW__WEBSERVER__BASE_URL=http://localhost:5173/services/airflow
       - POSTGRES_HOST=postgres-dw
       - POSTGRES_DB=${POSTGRES_DB:-synapse_dw}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-ues_minio_secret}
       - AIRFLOW_CONN_POSTGRES_DW_CONN=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-dw:5432/${POSTGRES_DB:-synapse_dw}
     networks:
       - de_net
@@ -255,9 +259,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1024M
 
   airflow-scheduler:
+    image: unified-studio-airflow:latest
     build:
       context: ./airflow
     container_name: airflow-scheduler
@@ -277,6 +282,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-synapse_dw}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-ues_minio_secret}
       - AIRFLOW_CONN_POSTGRES_DW_CONN=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-dw:5432/${POSTGRES_DB:-synapse_dw}
     networks:
       - de_net
@@ -284,7 +291,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
 
   pgadmin:
     image: dpage/pgadmin4:8.4
@@ -453,7 +460,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 160M
+          memory: 256M
 
   alertmanager:
     image: prom/alertmanager:v0.27.0

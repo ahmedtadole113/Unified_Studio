@@ -416,6 +416,17 @@ export default function DataEngineeringView({ user }) {
             </div>
           </div>
           <div className="studio-section-card" style={{ padding: 0, overflow: 'hidden', minHeight: '620px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.9rem', borderBottom: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{notebookUrl}</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <a href={notebookUrl} target="_blank" rel="noreferrer" className="apple-btn apple-btn-primary" style={{ padding: '4px 10px', fontSize: '0.72rem' }}>
+                  <ExternalLink size={12} /> Open in New Tab
+                </a>
+                <a href="/services/databricks/tree" target="_blank" rel="noreferrer" className="apple-btn apple-btn-secondary" style={{ padding: '4px 10px', fontSize: '0.72rem' }}>
+                  <ExternalLink size={12} /> Full File Tree
+                </a>
+              </div>
+            </div>
             <iframe src={notebookUrl} title="JupyterLab" style={{ width: '100%', height: '620px', border: 'none', background: '#111' }} />
           </div>
         </div>

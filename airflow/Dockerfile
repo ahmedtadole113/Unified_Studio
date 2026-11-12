@@ -12,7 +12,7 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 USER airflow
 # Install python packages required for ADF equivalent operators & PySpark 4.2
-RUN pip install --no-cache-dir \
+RUN pip install --no-cache-dir --default-timeout=300 --retries 5 \
     "pyspark>=4.2.0" \
     apache-airflow-providers-postgres==5.11.0 \
     apache-airflow-providers-http==4.10.1 \

@@ -82,7 +82,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "critical",
         "associated_slo": "slo-db-availability",
         "monitoring_config": {"probe": "pg_isready_and_sql"},
-        "ui_url": "http://localhost:5050",
+        "ui_url": "http://localhost:5173/services/synapse/",
         "legacy_key": "synapse",
     },
     {
@@ -94,7 +94,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "profile": "profile-data-engineering",
         "internal_endpoint": "http://pgadmin:80",
         "external_endpoint": "http://localhost:5050",
-        "health_check_endpoint": "http://pgadmin:80/misc/ping",
+        "health_check_endpoint": "http://pgadmin:80/services/synapse/misc/ping",
         "tcp_host": "pgadmin",
         "tcp_port": 80,
         "dependencies": ["postgres-dw"],
@@ -102,7 +102,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "medium",
         "associated_slo": "slo-db-availability",
         "monitoring_config": {"probe": "http_get"},
-        "ui_url": "http://localhost:5050",
+        "ui_url": "http://localhost:5173/services/synapse/",
         "legacy_key": None,
     },
     {
@@ -122,7 +122,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "critical",
         "associated_slo": "slo-data-freshness",
         "monitoring_config": {"probe": "minio_health_live"},
-        "ui_url": "http://localhost:9001",
+        "ui_url": "http://localhost:5173/services/datalake/",
         "legacy_key": "datalake",
     },
     {
@@ -142,7 +142,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "high",
         "associated_slo": "slo-spark-success",
         "monitoring_config": {"spark_ui": "http://spark-processing:4040/api/v1/applications"},
-        "ui_url": "http://localhost:8888",
+        "ui_url": "http://localhost:5173/services/databricks/",
         "legacy_key": "databricks",
     },
     {
@@ -182,7 +182,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "high",
         "associated_slo": "slo-airflow-success",
         "monitoring_config": {"probe": "airflow_health"},
-        "ui_url": "http://localhost:8085",
+        "ui_url": "http://localhost:5173/services/airflow/",
         "legacy_key": "airflow",
     },
     {
@@ -202,7 +202,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "high",
         "associated_slo": "slo-pipeline-latency",
         "monitoring_config": {"probe": "docker_and_scheduler_heartbeat"},
-        "ui_url": "http://localhost:8085",
+        "ui_url": "http://localhost:5173/services/airflow/",
         "legacy_key": None,
     },
     {
@@ -222,7 +222,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "high",
         "associated_slo": "slo-kafka-lag",
         "monitoring_config": {"scrape_target": "redpanda:9644/public_metrics"},
-        "ui_url": "http://localhost:8081",
+        "ui_url": "http://localhost:5173/services/eventhub/",
         "legacy_key": "eventhub",
     },
     {
@@ -242,7 +242,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "medium",
         "associated_slo": "slo-kafka-lag",
         "monitoring_config": {"probe": "http_get"},
-        "ui_url": "http://localhost:8081",
+        "ui_url": "http://localhost:5173/services/eventhub/",
         "legacy_key": None,
     },
     {
@@ -254,7 +254,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "profile": "profile-data-engineering",
         "internal_endpoint": "amqp://rabbitmq:5672",
         "external_endpoint": "http://localhost:15672",
-        "health_check_endpoint": "http://rabbitmq:15672/services/servicebus/api/healthchecks/node",
+        "health_check_endpoint": "http://rabbitmq:15692/metrics",
         "tcp_host": "rabbitmq",
         "tcp_port": 5672,
         "dependencies": [],
@@ -262,7 +262,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "high",
         "associated_slo": "slo-response-time",
         "monitoring_config": {"scrape_target": "rabbitmq:15692/metrics"},
-        "ui_url": "http://localhost:15672",
+        "ui_url": "http://localhost:5173/services/servicebus/",
         "legacy_key": "servicebus",
     },
     {
@@ -302,7 +302,7 @@ SERVICE_CATALOG: List[Dict[str, Any]] = [
         "criticality": "high",
         "associated_slo": "slo-api-availability",
         "monitoring_config": {"probe": "grafana_api_health"},
-        "ui_url": "http://localhost:3010",
+        "ui_url": "http://localhost:5173/services/monitoring/",
         "legacy_key": "monitoring",
     },
     {
@@ -474,6 +474,10 @@ def _probe_single_service(spec: Dict[str, Any], containers_map: Dict[str, Dict[s
         status = "degraded"
         lifecycle = "HEALTH_CHECKING"
         probe_detail = "Container running; health endpoint not yet ready"
+    elif docker_running and http_code is not None and http_code >= 400:
+        status = "degraded"
+        lifecycle = "ALERTING"
+        probe_detail = f"Container running; health probe returned HTTP {http_code}"
     elif not docker_exists and tcp_ok:
         status = "healthy"
         lifecycle = "MONITORING"

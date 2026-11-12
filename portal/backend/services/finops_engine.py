@@ -23,7 +23,7 @@ EXECUTION_PROFILES: List[Dict[str, Any]] = [
         "name": "Data Engineering Stack (Separated)",
         "stack": "data-engineering",
         "description": "MinIO Lakehouse, Spark 4.2 + Delta + Iceberg + JupyterLab, Airflow, pgAdmin, Redpanda, RabbitMQ.",
-        "services": ["minio", "mc", "spark-processing", "rest", "airflow-webserver", "airflow-scheduler", "pgadmin", "redpanda", "redpanda-console", "rabbitmq"],
+        "services": ["minio", "spark-processing", "iceberg-rest", "airflow-webserver", "airflow-scheduler", "pgadmin", "redpanda", "redpanda-console", "rabbitmq"],
         "estimated_limit_mb": 3456,
         "recommended_for": "SQL Studio, PySpark 4.2, Medallion TPC-H, Airflow DAGs, Redpanda & RabbitMQ.",
     },

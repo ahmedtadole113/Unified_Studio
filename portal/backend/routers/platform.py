@@ -32,18 +32,20 @@ class ReadinessSignoffRequest(BaseModel):
 @router.get("/overview")
 async def platform_overview(user: Dict[str, str] = Depends(security.get_current_user)):
     """Unified Platform Overview combining Service Registry, Docker, K8s, Pipelines, Incidents, SLOs, and FinOps."""
-    services = registry.refresh_registry(include_stats=True)
+    services, k8s, airflow, spark, slo_data, obs = await asyncio.gather(
+        asyncio.to_thread(registry.refresh_registry, True),
+        asyncio.to_thread(k8s_mgr.get_cluster_overview),
+        de_client.get_airflow_overview(),
+        de_client.get_spark_and_iceberg_status(),
+        slo_engine.evaluate_all_slos(),
+        prometheus_client.get_observability_status(),
+    )
     healthy = sum(1 for s in services if s["status"] == "healthy")
     degraded = sum(1 for s in services if s["status"] == "degraded")
     unavailable = sum(1 for s in services if s["status"] == "unavailable")
 
-    k8s = k8s_mgr.get_cluster_overview()
-    airflow = await de_client.get_airflow_overview()
-    spark = await de_client.get_spark_and_iceberg_status()
-    slo_data = await slo_engine.evaluate_all_slos()
-    finops = finops_engine.get_finops_overview()
+    finops = await asyncio.to_thread(finops_engine.get_finops_overview)
     incidents = database.get_incidents(status="open", limit=20)
-    obs = await prometheus_client.get_observability_status()
 
     overall_health = "healthy"
     if unavailable > 0 and any(s["criticality"] == "critical" and s["docker_exists"] and s["status"] == "unavailable" for s in services):
