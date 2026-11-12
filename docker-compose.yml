@@ -110,7 +110,7 @@ services:
   # PROFILE 2: DATA ENGINEERING STUDIO (Storage, Spark 4.2, Airflow, Streaming)
   # ==========================================================================
   minio:
-    image: minio/minio:latest
+    image: ghcr.io/coollabsio/minio:latest
     container_name: minio
     profiles:
       - profile-data-engineering
@@ -135,7 +135,7 @@ services:
           memory: 256M
 
   mc:
-    image: minio/mc:latest
+    image: ghcr.io/coollabsio/minio:latest
     container_name: mc
     profiles:
       - profile-data-engineering
