@@ -3,7 +3,7 @@ set -e
 
 echo "=================================================================="
 echo "  UNIFIED ENGINEERING STUDIO (Data Engineering + SRE + AIOps)"
-echo "  Optimized for Apple Silicon M4 (8 GB RAM Hardware Budget)"
+echo "  Single Unified Profile · Separated DE Stack & SRE Stack"
 echo "=================================================================="
 echo ""
 
@@ -25,38 +25,34 @@ else
     python3 notebooks/generate_data.py --sf 0.05 --output ./data
 fi
 
-PROFILE="${1:-core}"
+STACK="${1:-all}"
 
-echo ""
-echo "Building Unified Control Plane (portal-backend & portal-frontend)..."
-docker compose build portal-backend portal-frontend
-
-case "$PROFILE" in
+case "$STACK" in
+  all)
+    echo "Building and starting FULL Unified Stack (Core + DE Stack + SRE Stack)..."
+    docker compose up -d --build
+    ;;
   core)
-    echo "Starting PROFILE 1: CORE (Frontend, Control Plane, PostgreSQL DW, Prometheus)..."
-    docker compose up -d portal-backend portal-frontend postgres-dw prometheus
+    echo "Starting Core Control Plane Stack..."
+    docker compose up -d --build portal-backend portal-frontend postgres-dw prometheus
     ;;
   de|data-engineering)
-    echo "Starting PROFILE 2: DATA ENGINEERING STUDIO..."
-    docker compose --profile profile-data-engineering up -d
+    echo "Starting Core + Data Engineering Stack (de_net)..."
+    docker compose up -d --build portal-backend portal-frontend postgres-dw prometheus minio mc spark-processing rest airflow-webserver airflow-scheduler pgadmin redpanda redpanda-console rabbitmq
     ;;
   sre)
-    echo "Starting PROFILE 3: SRE, OBSERVABILITY & KUBERNETES LAB..."
-    docker compose --profile profile-sre up -d
-    ;;
-  all)
-    echo "Starting ALL PROFILES (Ensure sufficient Docker RAM allocation)..."
-    docker compose --profile profile-data-engineering --profile profile-sre up -d
+    echo "Starting Core + SRE & Observability Stack (sre_net)..."
+    docker compose up -d --build portal-backend portal-frontend postgres-dw prometheus grafana loki promtail tempo alertmanager data-generator practice-lab
     ;;
   *)
-    echo "Usage: ./init-lab.sh [core|data-engineering|sre|all]"
+    echo "Usage: ./init-lab.sh [all|core|de|sre]"
     exit 1
     ;;
 esac
 
 echo ""
 echo "=================================================================="
-echo "Unified Engineering Studio is ready!"
+echo "Unified Engineering Studio is active!"
 echo "Studio Console:   http://localhost:5173"
 echo "Control Plane API: http://localhost:8000/docs"
 echo "Prometheus:       http://localhost:9090"

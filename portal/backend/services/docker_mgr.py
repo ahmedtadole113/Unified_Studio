@@ -131,7 +131,7 @@ def get_container_summary(container_name: str, include_stats: bool = True) -> Di
             "exists": True,
             "id": c.short_id,
             "name": c.name,
-            "image": (c.image.tags[0] if c.image.tags else str(c.image.id)[:19]),
+            "image": (attrs.get("Config", {}).get("Image") or "unknown"),
             "status": (state.get("Status") or c.status or "unknown").lower(),
             "running": bool(state.get("Running", False)),
             "oom_killed": bool(state.get("OOMKilled", False)),
@@ -172,35 +172,39 @@ def list_containers(all_containers: bool = True, include_stats: bool = True) -> 
     out: List[Dict[str, Any]] = []
     try:
         for c in client.containers.list(all=all_containers):
-            attrs = c.attrs or {}
-            state = attrs.get("State", {})
-            health = (state.get("Health") or {}).get("Status", "none")
-            ports = []
-            for k, v in (attrs.get("NetworkSettings", {}).get("Ports") or {}).items():
-                if v:
-                    ports.append(f"{v[0].get('HostPort', '')}->{k}")
-                else:
-                    ports.append(k)
-            item = {
-                "id": c.short_id,
-                "name": c.name,
-                "image": (c.image.tags[0] if c.image and c.image.tags else "unknown"),
-                "status": (state.get("Status") or c.status or "unknown").lower(),
-                "running": bool(state.get("Running", False)),
-                "health": health,
-                "oom_killed": bool(state.get("OOMKilled", False)),
-                "restart_count": int(attrs.get("RestartCount", 0)),
-                "started_at": state.get("StartedAt", ""),
-                "ports": ports,
-                "networks": list((attrs.get("NetworkSettings", {}).get("Networks") or {}).keys()),
-                "cpu_percent": 0.0,
-                "memory_mb": 0.0,
-                "memory_limit_mb": 0.0,
-                "memory_percent": 0.0,
-                "rx_mb": 0.0,
-                "tx_mb": 0.0,
-            }
-            out.append(item)
+            try:
+                attrs = c.attrs or {}
+                state = attrs.get("State", {})
+                health = (state.get("Health") or {}).get("Status", "none")
+                ports = []
+                for k, v in (attrs.get("NetworkSettings", {}).get("Ports") or {}).items():
+                    if v:
+                        ports.append(f"{v[0].get('HostPort', '')}->{k}")
+                    else:
+                        ports.append(k)
+                item = {
+                    "id": c.short_id,
+                    "name": c.name,
+                    "image": (attrs.get("Config", {}).get("Image") or "unknown"),
+                    "stack": (attrs.get("Config", {}).get("Labels") or {}).get("com.ues.stack", "other"),
+                    "status": (state.get("Status") or c.status or "unknown").lower(),
+                    "running": bool(state.get("Running", False)),
+                    "health": health,
+                    "oom_killed": bool(state.get("OOMKilled", False)),
+                    "restart_count": int(attrs.get("RestartCount", 0)),
+                    "started_at": state.get("StartedAt", ""),
+                    "ports": ports,
+                    "networks": list((attrs.get("NetworkSettings", {}).get("Networks") or {}).keys()),
+                    "cpu_percent": 0.0,
+                    "memory_mb": 0.0,
+                    "memory_limit_mb": 0.0,
+                    "memory_percent": 0.0,
+                    "rx_mb": 0.0,
+                    "tx_mb": 0.0,
+                }
+                out.append(item)
+            except Exception as inner_exc:
+                logger.debug("Skipping transient container: %s", inner_exc)
 
         if include_stats:
             running_items = [x for x in out if x["running"]]

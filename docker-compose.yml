@@ -1,11 +1,13 @@
 services:
   # ==========================================================================
-  # PROFILE 1: CORE CONTROL PLANE (Default / Always On — M4 8GB Optimized)
+  # 1. CORE CONTROL PLANE STACK (Unified UI, FastAPI Gateway, Shared DW, Prom)
   # ==========================================================================
   portal-backend:
     build:
       context: ./portal/backend
     container_name: portal-backend
+    labels:
+      - "com.ues.stack=core"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -38,7 +40,8 @@ services:
       - UES_USERS_DB_PATH=/data/users.json
       - UES_COMPOSE_DIR=/home/iceberg
     networks:
-      - iceberg_net
+      - de_net
+      - sre_net
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/health/live || exit 1"]
       interval: 15s
@@ -53,12 +56,15 @@ services:
     build:
       context: ./portal/frontend
     container_name: portal-frontend
+    labels:
+      - "com.ues.stack=core"
     ports:
       - "${PORTAL_FRONTEND_PORT:-5173}:5173"
     depends_on:
       - portal-backend
     networks:
-      - iceberg_net
+      - de_net
+      - sre_net
     deploy:
       resources:
         limits:
@@ -67,6 +73,8 @@ services:
   postgres-dw:
     image: postgres:16-alpine
     container_name: postgres-dw
+    labels:
+      - "com.ues.stack=core"
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     environment:
@@ -76,7 +84,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - iceberg_net
+      - de_net
+      - sre_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-synapse_dw}"]
       interval: 10s
@@ -90,6 +99,8 @@ services:
   prometheus:
     image: prom/prometheus:v2.45.0
     container_name: prometheus
+    labels:
+      - "com.ues.stack=core"
     volumes:
       - ./observability/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
@@ -100,27 +111,27 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=7d'
     networks:
-      - iceberg_net
+      - de_net
+      - sre_net
     deploy:
       resources:
         limits:
           memory: 256M
 
   # ==========================================================================
-  # PROFILE 2: DATA ENGINEERING STUDIO (Storage, Spark 4.2, Airflow, Streaming)
+  # 2. DATA ENGINEERING STACK (Separated on de_net | com.ues.stack=data-engineering)
   # ==========================================================================
   minio:
     image: ghcr.io/coollabsio/minio:latest
     container_name: minio
-    profiles:
-      - profile-data-engineering
-      - profile-storage
+    labels:
+      - "com.ues.stack=data-engineering"
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-password}
       - MINIO_BROWSER_REDIRECT_URL=http://localhost:5173/services/datalake
     networks:
-      iceberg_net:
+      de_net:
         aliases:
           - warehouse.minio
     ports:
@@ -137,16 +148,15 @@ services:
   mc:
     image: ghcr.io/coollabsio/minio:latest
     container_name: mc
-    profiles:
-      - profile-data-engineering
-      - profile-storage
+    labels:
+      - "com.ues.stack=data-engineering"
     depends_on:
       - minio
     networks:
-      - iceberg_net
+      - de_net
     entrypoint: >
       /bin/sh -c "
-      sleep 3;
+      sleep 4;
       /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-admin} ${MINIO_ROOT_PASSWORD:-password};
       /usr/bin/mc mb myminio/warehouse --ignore-existing;
       /usr/bin/mc mb myminio/bronze --ignore-existing;
@@ -158,9 +168,8 @@ services:
   spark-processing:
     build: .
     container_name: spark-processing
-    profiles:
-      - profile-data-engineering
-      - profile-processing
+    labels:
+      - "com.ues.stack=data-engineering"
     depends_on:
       - rest
       - minio
@@ -179,7 +188,7 @@ services:
       - "${SPARK_MASTER_PORT:-8080}:8080"
       - "10000:10000"
     networks:
-      - iceberg_net
+      - de_net
     deploy:
       resources:
         limits:
@@ -188,11 +197,10 @@ services:
   rest:
     image: apache/iceberg-rest-fixture:latest
     container_name: iceberg-rest
-    profiles:
-      - profile-data-engineering
-      - profile-processing
+    labels:
+      - "com.ues.stack=data-engineering"
     networks:
-      - iceberg_net
+      - de_net
     ports:
       - "8181:8181"
     environment:
@@ -214,9 +222,8 @@ services:
     build:
       context: ./airflow
     container_name: airflow-webserver
-    profiles:
-      - profile-data-engineering
-      - profile-orchestration
+    labels:
+      - "com.ues.stack=data-engineering"
     ports:
       - "${AIRFLOW_WEBSERVER_PORT:-8085}:8080"
     volumes:
@@ -238,7 +245,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
       - AIRFLOW_CONN_POSTGRES_DW_CONN=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-dw:5432/${POSTGRES_DB:-synapse_dw}
     networks:
-      - iceberg_net
+      - de_net
     command: >
       bash -c "
       airflow db init &&
@@ -254,9 +261,8 @@ services:
     build:
       context: ./airflow
     container_name: airflow-scheduler
-    profiles:
-      - profile-data-engineering
-      - profile-orchestration
+    labels:
+      - "com.ues.stack=data-engineering"
     depends_on:
       - airflow-webserver
     volumes:
@@ -273,7 +279,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
       - AIRFLOW_CONN_POSTGRES_DW_CONN=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-dw:5432/${POSTGRES_DB:-synapse_dw}
     networks:
-      - iceberg_net
+      - de_net
     command: bash -c "sleep 5; exec airflow scheduler"
     deploy:
       resources:
@@ -283,9 +289,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4:8.4
     container_name: pgadmin
-    profiles:
-      - profile-data-engineering
-      - profile-warehouse
+    labels:
+      - "com.ues.stack=data-engineering"
     ports:
       - "${PGADMIN_PORT:-5050}:80"
     environment:
@@ -298,7 +303,7 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
-      - iceberg_net
+      - de_net
     deploy:
       resources:
         limits:
@@ -307,9 +312,8 @@ services:
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.6
     container_name: redpanda
-    profiles:
-      - profile-data-engineering
-      - profile-streaming
+    labels:
+      - "com.ues.stack=data-engineering"
     command: >
       redpanda start
       --overprovisioned
@@ -322,7 +326,7 @@ services:
       - "8082:8082"
       - "9644:9644"
     networks:
-      - iceberg_net
+      - de_net
     deploy:
       resources:
         limits:
@@ -331,9 +335,8 @@ services:
   redpanda-console:
     image: docker.redpanda.com/redpandadata/console:v2.4.6
     container_name: redpanda-console
-    profiles:
-      - profile-data-engineering
-      - profile-streaming
+    labels:
+      - "com.ues.stack=data-engineering"
     depends_on:
       - redpanda
     ports:
@@ -342,7 +345,7 @@ services:
       - KAFKA_BROKERS=redpanda:9092
       - SERVER_BASEPATH=/services/eventhub
     networks:
-      - iceberg_net
+      - de_net
     deploy:
       resources:
         limits:
@@ -351,9 +354,8 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: rabbitmq
-    profiles:
-      - profile-data-engineering
-      - profile-streaming
+    labels:
+      - "com.ues.stack=data-engineering"
     ports:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_ADMIN_PORT:-15672}:15672"
@@ -366,21 +368,20 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - iceberg_net
+      - de_net
     deploy:
       resources:
         limits:
           memory: 256M
 
   # ==========================================================================
-  # PROFILE 3: SRE, OBSERVABILITY & KUBERNETES LAB
+  # 3. SRE & OBSERVABILITY STACK (Separated on sre_net | com.ues.stack=sre)
   # ==========================================================================
   grafana:
     image: grafana/grafana-oss:10.4.1
     container_name: grafana
-    profiles:
-      - profile-sre
-      - profile-monitoring
+    labels:
+      - "com.ues.stack=sre"
     ports:
       - "${GRAFANA_PORT:-3010}:3000"
     environment:
@@ -394,7 +395,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
-      - iceberg_net
+      - sre_net
     deploy:
       resources:
         limits:
@@ -403,9 +404,8 @@ services:
   loki:
     image: grafana/loki:2.9.6
     container_name: loki
-    profiles:
-      - profile-sre
-      - profile-monitoring
+    labels:
+      - "com.ues.stack=sre"
     ports:
       - "${LOKI_PORT:-3100}:3100"
     command: -config.file=/etc/loki/local-config.yaml
@@ -413,7 +413,7 @@ services:
       - ./observability/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     networks:
-      - iceberg_net
+      - sre_net
     deploy:
       resources:
         limits:
@@ -422,9 +422,8 @@ services:
   promtail:
     image: grafana/promtail:2.9.6
     container_name: promtail
-    profiles:
-      - profile-sre
-      - profile-monitoring
+    labels:
+      - "com.ues.stack=sre"
     depends_on:
       - loki
     volumes:
@@ -432,7 +431,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command: -config.file=/etc/promtail/config.yml
     networks:
-      - iceberg_net
+      - sre_net
     deploy:
       resources:
         limits:
@@ -441,9 +440,8 @@ services:
   tempo:
     image: grafana/tempo:2.4.1
     container_name: tempo
-    profiles:
-      - profile-sre
-      - profile-monitoring
+    labels:
+      - "com.ues.stack=sre"
     ports:
       - "${TEMPO_PORT:-3200}:3200"
       - "4318:4318"
@@ -451,7 +449,7 @@ services:
     volumes:
       - ./observability/tempo/tempo.yml:/etc/tempo.yaml:ro
     networks:
-      - iceberg_net
+      - sre_net
     deploy:
       resources:
         limits:
@@ -460,9 +458,8 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.27.0
     container_name: alertmanager
-    profiles:
-      - profile-sre
-      - profile-monitoring
+    labels:
+      - "com.ues.stack=sre"
     ports:
       - "${ALERTMANAGER_PORT:-9093}:9093"
     volumes:
@@ -470,7 +467,7 @@ services:
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
     networks:
-      - iceberg_net
+      - sre_net
     deploy:
       resources:
         limits:
@@ -481,12 +478,12 @@ services:
       context: ./sre-modules/data-generator
       dockerfile: Dockerfile
     container_name: data-generator
-    profiles:
-      - profile-sre
+    labels:
+      - "com.ues.stack=sre"
     ports:
       - "8001:8000"
     networks:
-      - iceberg_net
+      - sre_net
     deploy:
       resources:
         limits:
@@ -497,8 +494,8 @@ services:
       context: ./sre-modules/practice-lab
       dockerfile: Dockerfile
     container_name: practice-lab
-    profiles:
-      - profile-sre
+    labels:
+      - "com.ues.stack=sre"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -507,14 +504,17 @@ services:
     ports:
       - "8090:8090"
     networks:
-      - iceberg_net
+      - sre_net
     deploy:
       resources:
         limits:
           memory: 256M
 
 networks:
-  iceberg_net:
+  de_net:
+    name: ues_de_net
+  sre_net:
+    name: ues_sre_net
 
 volumes:
   portal_data:
