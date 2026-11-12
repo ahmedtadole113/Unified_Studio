@@ -216,7 +216,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 256M
 
   airflow-webserver:
     image: unified-studio-airflow:latest
@@ -259,7 +259,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 1280M
 
   airflow-scheduler:
     image: unified-studio-airflow:latest
